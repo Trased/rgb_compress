@@ -141,40 +141,6 @@ void compress(const std::string& inputFilePath, const std::string& outputFilePat
     std::cout << "Encoding..." << std::endl;
     uint32_t numFrames = largeBlock.size() / RGB_CIF_SIZE;
     std::vector<uint8_t> header;
-    std::vector<uint8_t> compressedData = encodeHuffman(largeBlock, header);
-
-#ifdef DEBUG_HUFFMAN
-    std::ofstream headerFile("/home/user/Projects/SMM/debug/header_output.txt");
-    if (!headerFile.is_open())
-    {
-        std::cerr << "Failed to open file for writing header!" << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < header.size(); ++i)
-    {
-        headerFile << "Byte " << i << ": " << static_cast<int>(header[i]) << "\n";
-    }
-    headerFile.close();
-
-    std::ofstream compressedFile("/home/user/Projects/SMM/debug/compressed_data_output.txt");
-    if (!compressedFile.is_open())
-    {
-        std::cerr << "Failed to open file for writing compressed data!" << std::endl;
-        return;
-    }
-
-    for (size_t i = 0; i < compressedData.size(); ++i)
-    {
-        compressedFile << "Byte " << i << ": " << static_cast<int>(compressedData[i]) << "\n";
-    }
-    compressedFile.close();
-
-    std::cout << "Compressed data size: " << compressedData.size() << " bytes" << std::endl;
-    std::cout << "Header size: " << header.size() << " bytes" << std::endl;
-    std::cout << "Total size: " << compressedData.size() + header.size() << " bytes" << std::endl;
-    std::cout << "Total frames: " << numFrames << std::endl;
-#endif //DEBUG_HUFFMAN
 
     std::cout << "Writting to file..." << std::endl;
     std::ofstream outputFile(outputFilePath, std::ios::binary);
@@ -184,18 +150,57 @@ void compress(const std::string& inputFilePath, const std::string& outputFilePat
         return;
     }
     outputFile.write("SMP", 3);
+
     uint16_t width = CIF_X;
     uint16_t height = CIF_Y;
     outputFile.write(reinterpret_cast<const char*>(&width), sizeof(uint16_t));
     outputFile.write(reinterpret_cast<const char*>(&height), sizeof(uint16_t));
     outputFile.write(reinterpret_cast<const char*>(&numFrames), sizeof(numFrames));
     outputFile.write(reinterpret_cast<const char*>(&quality), sizeof(quality));
-    outputFile.write(reinterpret_cast<const char*>(header.data()), header.size());
 
     uint64_t nextFrameOffset = 0;
     uint8_t frameType = 0;
     for (size_t frameIndex = 0; frameIndex < numFrames; ++frameIndex)
     {
+        std::vector<uint8_t> currentFrame(
+            largeBlock.begin() + frameIndex * RGB_CIF_SIZE,
+            largeBlock.begin() + (frameIndex + 1) * RGB_CIF_SIZE
+        );
+        std::vector<uint8_t> compressedData = encodeHuffman(currentFrame, header);
+
+#ifdef DEBUG_HUFFMAN
+            std::ofstream headerFile("/home/user/Projects/SMM/debug/header_output.txt");
+            if (!headerFile.is_open())
+            {
+                std::cerr << "Failed to open file for writing header!" << std::endl;
+                return;
+            }
+
+            for (size_t i = 0; i < header.size(); ++i)
+            {
+                headerFile << "Byte " << i << ": " << static_cast<int>(header[i]) << "\n";
+            }
+            headerFile.close();
+
+            std::ofstream compressedFile("/home/user/Projects/SMM/debug/compressed_data_output.txt");
+            if (!compressedFile.is_open())
+            {
+                std::cerr << "Failed to open file for writing compressed data!" << std::endl;
+                return;
+            }
+
+            for (size_t i = 0; i < compressedData.size(); ++i)
+            {
+                compressedFile << "Byte " << i << ": " << static_cast<int>(compressedData[i]) << "\n";
+            }
+            compressedFile.close();
+
+            std::cout << "Compressed data size: " << compressedData.size() << " bytes" << std::endl;
+            std::cout << "Header size: " << header.size() << " bytes" << std::endl;
+            std::cout << "Total size: " << compressedData.size() + header.size() << " bytes" << std::endl;
+            std::cout << "Total frames: " << numFrames << std::endl;
+#endif //DEBUG_HUFFMAN
+
         frameType = (frameIndex % 32 == 0) ? 0 : 1;
         nextFrameOffset = (frameIndex + 1 < numFrames)
                             ? (outputFile.tellp() + static_cast<std::streamoff>(compressedData.size() + sizeof(uint64_t) + 1))
@@ -204,6 +209,11 @@ void compress(const std::string& inputFilePath, const std::string& outputFilePat
         outputFile.write(reinterpret_cast<const char*>(&nextFrameOffset), sizeof(nextFrameOffset));
         outputFile.write(reinterpret_cast<const char*>(&frameType), sizeof(frameType));
         outputFile.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
+
+#ifdef DEBUG_HUFFMAN
+    std::cout << "Frame " << frameIndex << ": Compressed data size = " << compressedData.size() << " bytes" << std::endl;
+    std::cout << "Frame " << frameIndex << ": Next frame offset = " << nextFrameOffset << std::endl;
+#endif
     }
 
     outputFile.close();
