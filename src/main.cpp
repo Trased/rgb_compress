@@ -66,9 +66,9 @@ int main(int argc, char *argv[])
             std::cerr << "Output file path must be absolute." << std::endl;
             return 1;
         }
-        if (".smp" != outputPath.extension())
+        if (".rgb" != outputPath.extension())
         {
-            std::cerr << "Output file must have .smp extension." << std::endl;
+            std::cerr << "Output file must have .rgb extension." << std::endl;
             return 1;
         }
 
@@ -99,9 +99,9 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        if(".smp" != inputPath.extension())
+        if(".rgb" != inputPath.extension())
         {
-            std::cerr << "Input file must have .smp extension." << std::endl;
+            std::cerr << "Input file must have .rgb extension." << std::endl;
             return 1;
         }
 

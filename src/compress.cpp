@@ -5,12 +5,71 @@ void compress(const std::string& inputFilePath, const std::string& outputFilePat
     uint16_t idx = 0;
 
     std::cout << "Processing frames..." << std::endl;
-    std::vector<YCbCr> yuvFrames = processFramesForCompression(inputFilePath);
+    std::vector<std::vector<YCbCr>> yuvFrames = processFramesForCompression(inputFilePath);
+
+#ifdef DEBUG_PROCESS
+    std::ofstream processFile("/home/user/Projects/SMM/debug/yuv_frames_output.txt");
+    if (!processFile.is_open())
+    {
+        std::cerr << "Failed to open file for writing YUV frames!" << std::endl;
+        return;
+    }
+
+    for (size_t frameIndex = 0; frameIndex < yuvFrames.size(); ++frameIndex)
+    {
+        processFile << "Frame " << frameIndex + 1 << ":\n";
+
+        for (size_t pixelIndex = 0; pixelIndex < yuvFrames[frameIndex].size(); ++pixelIndex)
+        {
+            const YCbCr& pixel = yuvFrames[frameIndex][pixelIndex];
+            processFile << "Pixel " << pixelIndex << ": Y = " << static_cast<int>(pixel.y)
+                       << ", Cb = " << static_cast<int>(pixel.cb)
+                       << ", Cr = " << static_cast<int>(pixel.cr) << "\n";
+        }
+
+        processFile << "----------------------------------------\n";
+    }
+    
+    processFile.close();
+
+    std::cout << "Total YUV frames: " << yuvFrames.size() << std::endl;
+    for(size_t i = 0; i < yuvFrames.size(); i++)
+    {
+        std::cout << "Frame " << i << "   \thas\t" << yuvFrames[i].size() << "\tpixels" << std::endl;
+    }
+#endif // DEBUG_PROCESS
 
     std::cout << "Processing blocks..." << std::endl;
     std::vector<std::vector<float>> blocks = segmentFramesToBlocks(yuvFrames);
 
-    std::cout << "Quantizing blocks..." << std::endl;
+#ifdef DEBUG_BLOCKS
+    std::ofstream blocksFile("/home/user/Projects/SMM/debug/blocks_output.txt");
+    if (!blocksFile.is_open())
+    {
+        std::cerr << "Failed to open file for writing blocks!" << std::endl;
+        return;
+    }
+
+    for (size_t blockIndex = 0; blockIndex < blocks.size(); ++blockIndex)
+    {
+        blocksFile << "Block " << blockIndex + 1 << ":\n";
+
+        for (size_t valueIndex = 0; valueIndex < blocks[blockIndex].size(); ++valueIndex)
+        {
+            blocksFile << blocks[blockIndex][valueIndex] << " ";
+
+            if ((valueIndex + 1) % 8 == 0)
+            {
+                blocksFile << "\n";
+            }
+        }
+
+        blocksFile << "----------------------------------------\n";
+    }
+
+    blocksFile.close();
+#endif // DEBUG_BLOCKS
+
     std::vector<std::array<std::array<float, 8>, 8>> quantizedBlocks;
 
     std::cout << "Aplying FDCT on blocks..." << std::endl;
@@ -33,12 +92,89 @@ void compress(const std::string& inputFilePath, const std::string& outputFilePat
         quantizedBlocks.push_back(block2DArray);
         idx++;
     }
+
+#ifdef DEBUG_QUANTIZED_BLOCKS
+    std::ofstream quantized_blocks("/home/user/Projects/SMM/debug/quantized_blocks_output.txt");
+    if (!quantized_blocks.is_open())
+    {
+        std::cerr << "Failed to open file for writing quantized blocks!" << std::endl;
+        return;
+    }
+
+    for (size_t blockIndex = 0; blockIndex < quantizedBlocks.size(); ++blockIndex)
+    {
+        quantized_blocks << "Quantized Block " << blockIndex + 1 << ":\n";
+
+        for (size_t i = 0; i < 8; ++i)
+        {
+            for (size_t j = 0; j < 8; ++j)
+            {
+                quantized_blocks << quantizedBlocks[blockIndex][i][j] << " ";
+            }
+            quantized_blocks << "\n";
+        }
+
+        quantized_blocks << "----------------------------------------\n";
+    }
+    quantized_blocks.close();
+#endif //DEBUG_QUANTIZED_BLOCKS
+
     std::cout << "Recomposing frame..." << std::endl;
     std::vector<uint8_t> largeBlock = recomposeFrame(quantizedBlocks);
 
+#ifdef DEBUG_LARGE_BLOCK
+    std::ofstream lBlockFile("/home/user/Projects/SMM/debug/large_block_output.txt");
+    if (!lBlockFile.is_open())
+    {
+        std::cerr << "Failed to open file for writing large block!" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < largeBlock.size(); ++i)
+    {
+        lBlockFile << "Byte " << i << ": " << static_cast<int>(largeBlock[i]) << "\n";
+    }
+
+    lBlockFile.close();
+#endif //DEBUG_LARGE_BLOCK
+
     std::cout << "Encoding..." << std::endl;
+    uint32_t numFrames = largeBlock.size() / RGB_CIF_SIZE;
     std::vector<uint8_t> header;
     std::vector<uint8_t> compressedData = encodeHuffman(largeBlock, header);
+
+#ifdef DEBUG_HUFFMAN
+    std::ofstream headerFile("/home/user/Projects/SMM/debug/header_output.txt");
+    if (!headerFile.is_open())
+    {
+        std::cerr << "Failed to open file for writing header!" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < header.size(); ++i)
+    {
+        headerFile << "Byte " << i << ": " << static_cast<int>(header[i]) << "\n";
+    }
+    headerFile.close();
+
+    std::ofstream compressedFile("/home/user/Projects/SMM/debug/compressed_data_output.txt");
+    if (!compressedFile.is_open())
+    {
+        std::cerr << "Failed to open file for writing compressed data!" << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < compressedData.size(); ++i)
+    {
+        compressedFile << "Byte " << i << ": " << static_cast<int>(compressedData[i]) << "\n";
+    }
+    compressedFile.close();
+
+    std::cout << "Compressed data size: " << compressedData.size() << " bytes" << std::endl;
+    std::cout << "Header size: " << header.size() << " bytes" << std::endl;
+    std::cout << "Total size: " << compressedData.size() + header.size() << " bytes" << std::endl;
+    std::cout << "Total frames: " << numFrames << std::endl;
+#endif //DEBUG_HUFFMAN
 
     std::cout << "Writting to file..." << std::endl;
     std::ofstream outputFile(outputFilePath, std::ios::binary);
@@ -47,22 +183,45 @@ void compress(const std::string& inputFilePath, const std::string& outputFilePat
         std::cerr << "Failed to open output file: " << outputFilePath << std::endl;
         return;
     }
-
+    outputFile.write("SMP", 3);
+    uint16_t width = CIF_X;
+    uint16_t height = CIF_Y;
+    outputFile.write(reinterpret_cast<const char*>(&width), sizeof(uint16_t));
+    outputFile.write(reinterpret_cast<const char*>(&height), sizeof(uint16_t));
+    outputFile.write(reinterpret_cast<const char*>(&numFrames), sizeof(numFrames));
+    outputFile.write(reinterpret_cast<const char*>(&quality), sizeof(quality));
     outputFile.write(reinterpret_cast<const char*>(header.data()), header.size());
-    outputFile.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
+
+    uint64_t nextFrameOffset = 0;
+    uint8_t frameType = 0;
+    for (size_t frameIndex = 0; frameIndex < numFrames; ++frameIndex)
+    {
+        frameType = (frameIndex % 32 == 0) ? 0 : 1;
+        nextFrameOffset = (frameIndex + 1 < numFrames)
+                            ? (outputFile.tellp() + static_cast<std::streamoff>(compressedData.size() + sizeof(uint64_t) + 1))
+                            : std::streampos(0);
+
+        outputFile.write(reinterpret_cast<const char*>(&nextFrameOffset), sizeof(nextFrameOffset));
+        outputFile.write(reinterpret_cast<const char*>(&frameType), sizeof(frameType));
+        outputFile.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
+    }
+
     outputFile.close();
+
     std::cout << "Compression completed successfully!" << std::endl
                 << "Output file: " << outputFilePath << std::endl;
 
 }
 
-std::vector<YCbCr> processFramesForCompression(const std::string& inputFilePath)
+std::vector<std::vector<YCbCr>> processFramesForCompression(const std::string& inputFilePath)
 {
     std::ifstream inputFile(inputFilePath, std::ios::binary);
 
     std::vector<uint8_t> currentFrame(RGB_CIF_SIZE);
-    std::vector<uint8_t> previousFrame(RGB_CIF_SIZE, 0);
-    std::vector<YCbCr> yuvFrames(RGB_CIF_SIZE / 3);
+    std::vector<YCbCr> currFrame(CIF_SIZE);
+    std::vector<YCbCr> prevFrame(CIF_SIZE);
+    std::vector<std::vector<YCbCr>> yuvFrames;
+    YCbCr pixels = {0, 0, 0};
 
     if (!inputFile.is_open())
     {
@@ -70,79 +229,98 @@ std::vector<YCbCr> processFramesForCompression(const std::string& inputFilePath)
     }
     else
     {
-        size_t frameIndex = 1;
+        size_t frameIndex = 0;
 
+#ifdef DEBUG_COMPRESS
+        std::ofstream compressFile("/home/user/Projects/SMM/debug/compress.txt", std::ios::app);
+        if (!compressFile.is_open())
+        {
+            std::cerr << "Failed to open compressFile file!" << std::endl;
+        }
+#endif // DEBUG_COMPRESS
         while (inputFile.read(reinterpret_cast<char*>(currentFrame.data()), RGB_CIF_SIZE))
         {
-            for (size_t i = 0; i < RGB_CIF_SIZE; i += 3)
+#ifdef DEBUG_COMPRESS
+            std::streamsize bytesRead = inputFile.gcount();
+            std::cout << "Bytes read for frame " << frameIndex << ": " << bytesRead << std::endl;
+#endif //DEBUG_COMPRESS
+            currFrame.clear();
+            for (size_t i = 0; i < CIF_SIZE; i++)
             {
-                RGB rgb = {currentFrame[i], currentFrame[i + 1], currentFrame[i + 2]};
-                yuvFrames[i / 3] = rgbToYuv(rgb);
-            }
-
-            /// TODO :: DPCM for each non Key frame.
-            /// REANALYZE THIS FUNCTION
-
-            if (frameIndex % 32 == 0)
-            {
-                std::cout << "Processing key-frame: " << frameIndex << std::endl;
-            }
-            else
-            {
-                std::vector<int8_t> deltaFrame(RGB_CIF_SIZE / 3 * 3);
-                for (size_t i = 0; i < yuvFrames.size(); ++i)
+                RGB rgb = {currentFrame[i], currentFrame[i + CIF_SIZE], currentFrame[i + 2*CIF_SIZE]};
+                pixels = rgbToYuv(rgb);
+                if ((0 != frameIndex % 32 )  &&  (0 != frameIndex))
                 {
-                    deltaFrame[i * 3 + 0] = static_cast<int8_t>(yuvFrames[i].y - previousFrame[i * 3 + 0]);
-                    deltaFrame[i * 3 + 1] = static_cast<int8_t>(yuvFrames[i].cb - previousFrame[i * 3 + 1]);
-                    deltaFrame[i * 3 + 2] = static_cast<int8_t>(yuvFrames[i].cr - previousFrame[i * 3 + 2]);
+                    pixels.y = DPCM_8BIT(pixels.y, prevFrame[i].y);
+                    pixels.cb = DPCM_8BIT(pixels.cb, prevFrame[i].cb);
+                    pixels.cr = DPCM_8BIT(pixels.cr, prevFrame[i].cr);
+#ifdef DEBUG_COMPRESS
+                    compressFile <<"Y: " << static_cast<int>(pixels.y) << " Cb: " << static_cast<int>(pixels.cb) << " Cr: " << static_cast<int>(pixels.cr) << std::endl;
+#endif // DEBUG_COMPRESS
                 }
-
+#ifdef DEBUG_COMPRESS
+                else
+                {
+                    compressFile << frameIndex << std::endl;
+                    compressFile <<"Y: " << static_cast<int>(pixels.y) << " Cb: " << static_cast<int>(pixels.cb) << " Cr: " << static_cast<int>(pixels.cr) << std::endl;
+                }
+#endif // DEBUG_COMPRESS
+                currFrame.push_back(pixels);
             }
-            std::memcpy(previousFrame.data(), currentFrame.data(), RGB_CIF_SIZE);
+            yuvFrames.push_back(currFrame);
+            prevFrame = currFrame;
 
             ++frameIndex;
         }
+#ifdef DEBUG_COMPRESS
+        compressFile.close();
+#endif // DEBUG_COMPRESS
         inputFile.close();
     }
     return yuvFrames;
 }
 
-std::vector<std::vector<float>> segmentFramesToBlocks(const std::vector<YCbCr>& yuvFrames)
+std::vector<std::vector<float>> segmentFramesToBlocks(const std::vector<std::vector<YCbCr>>& yuvFrames)
 {
     std::vector<std::vector<float>> blocks;
 
-    for (size_t y = 0; y < CIF_Y; y += BLOCK_SIZE)
+    for (size_t frameIndex = 0; frameIndex < yuvFrames.size(); ++frameIndex)
     {
-        for (size_t x = 0; x < CIF_X; x += BLOCK_SIZE)
-        {
-            std::vector<float> blockY;
-            std::vector<float> blockCb;
-            std::vector<float> blockCr;
+        const auto& yuvFrame = yuvFrames[frameIndex];
 
-            for (size_t i = 0; i < BLOCK_SIZE; ++i)
+        for (size_t y = 0; y < CIF_Y; y += BLOCK_SIZE)
+        {
+            for (size_t x = 0; x < CIF_X; x += BLOCK_SIZE)
             {
-                for (size_t j = 0; j < BLOCK_SIZE; ++j)
+                std::vector<float> blockY;
+                std::vector<float> blockCb;
+                std::vector<float> blockCr;
+
+                for (size_t i = 0; i < BLOCK_SIZE; ++i)
                 {
-                    size_t pixelIndex = (y + i) * CIF_X + (x + j);
-                    if (y + i < CIF_Y && x + j < CIF_X)
+                    for (size_t j = 0; j < BLOCK_SIZE; ++j)
                     {
-                        blockY.push_back(yuvFrames[pixelIndex].y);
-                        blockCb.push_back(yuvFrames[pixelIndex].cb);
-                        blockCr.push_back(yuvFrames[pixelIndex].cr);
+                        size_t pixelIndex = (y + i) * CIF_X + (x + j);
+                        if (y + i < CIF_Y && x + j < CIF_X)
+                        {
+                            blockY.push_back(yuvFrame[pixelIndex].y);
+                            blockCb.push_back(yuvFrame[pixelIndex].cb);
+                            blockCr.push_back(yuvFrame[pixelIndex].cr);
+                        }
                     }
                 }
+                blocks.push_back(blockY);
+                blocks.push_back(blockCb);
+                blocks.push_back(blockCr);
             }
-            blocks.push_back(blockY);
-            blocks.push_back(blockCb);
-            blocks.push_back(blockCr);
         }
     }
-
     return blocks;
 }
 
-void quantizeBlock(float block[8][8], const unsigned char quantTable[8][8], int quality) {
-    unsigned char localQuantTable[8][8];
+void quantizeBlock(float block[8][8], const unsigned char quantTable[8][8], int quality)
+{
+    uint32_t localQuantTable[8][8];
     if(quality < 50)
     {
         for (int i = 0; i < 8; ++i)
@@ -182,11 +360,13 @@ void quantizeBlock(float block[8][8], const unsigned char quantTable[8][8], int 
     }
 }
 
-void FDCT_2D(float block[8][8]) {
+void FDCT_2D(float block[8][8])
+{
 	float p1[8], p2[8], p3[8], p4[8], p5[8], p6[8];
 	size_t i;
 
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < 8; i++)
+    {
 		// FDCT 1D Phase 1
         p1[0] = block[i][0] + block[i][7];
         p1[1] = block[i][1] + block[i][6];
@@ -252,7 +432,8 @@ void FDCT_2D(float block[8][8]) {
         block[i][7] = p6[7] * 1 / ( 4 * c3 );
 	}
 	// then process columns
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < 8; i++)
+    {
 		// FDCT 1D Phase 1
         p1[0] = block[0][i] + block[7][i];
         p1[1] = block[1][i] + block[6][i];

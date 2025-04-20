@@ -53,60 +53,46 @@ RGB yuvToRgb(const YCbCr& ycbcr)
     return rgb;
 }
 
-void vectorTo2DArray(const std::vector<float>& vec, float array[8][8]) {
-    for (size_t i = 0; i < 8; ++i) {
-        for (size_t j = 0; j < 8; ++j) {
+void vectorTo2DArray(const std::vector<float>& vec, float array[8][8])
+{
+    for (size_t i = 0; i < 8; ++i)
+    {
+        for (size_t j = 0; j < 8; ++j)
+        {
             array[i][j] = vec[i * 8 + j];
         }
     }
 }
 
-std::vector<uint8_t> recomposeFrame(const std::vector<std::array<std::array<float, 8>, 8>>& quantizedBlocks) {
-    std::vector<uint8_t> frame(CIF_X * CIF_Y * 3, 0);
-    size_t blockIndex = 0;
+std::vector<uint8_t> recomposeFrame(const std::vector<std::array<std::array<float, 8>, 8>>& quantizedBlocks)
+{
+    std::vector<uint8_t> frame;
+#ifdef DEBUG_LARGE_BLOCK
+    std::cout << "Recomposing frame with " << quantizedBlocks.size() << " blocks\n";
+    std::cout << "Total size: " << quantizedBlocks.size() * 8 * 8 << " bytes\n";
+#endif //DEBUG_LARGE_BLOCK
+    frame.reserve(quantizedBlocks.size() * 8 * 8);
 
-    for (size_t y = 0; y < CIF_Y; y += 8) {
-        for (size_t x = 0; x < CIF_X; x += 8) {
-            // Copy Y block
-            for (size_t i = 0; i < 8; ++i) {
-                for (size_t j = 0; j < 8; ++j) {
-                    size_t pixelIndex = (y + i) * CIF_X + (x + j);
-                    if (y + i < CIF_Y && x + j < CIF_X) {
-                        frame[pixelIndex] = static_cast<uint8_t>(quantizedBlocks[blockIndex][i][j]);
-                    }
-                }
+    for(const auto& block :quantizedBlocks)
+    {
+        for(const auto& row : block)
+        {
+            for(const auto& value : row)
+            {
+                frame.push_back(static_cast<uint8_t>(value));
             }
-            blockIndex++;
-
-            for (size_t i = 0; i < 8; ++i) {
-                for (size_t j = 0; j < 8; ++j) {
-                    size_t pixelIndex = ((y + i) * CIF_X + (x + j)) * 3 + 1;
-                    if (y + i < CIF_Y && x + j < CIF_X) {
-                        frame[pixelIndex] = static_cast<uint8_t>(quantizedBlocks[blockIndex][i][j]);
-                    }
-                }
-            }
-            blockIndex++;
-
-            for (size_t i = 0; i < 8; ++i) {
-                for (size_t j = 0; j < 8; ++j) {
-                    size_t pixelIndex = ((y + i) * CIF_X + (x + j)) * 3 + 2;
-                    if (y + i < CIF_Y && x + j < CIF_X) {
-                        frame[pixelIndex] = static_cast<uint8_t>(quantizedBlocks[blockIndex][i][j]);
-                    }
-                }
-            }
-            blockIndex++;
         }
     }
-    frame.push_back(255);
     return frame;
 }
 
-std::array<std::array<float, 8>, 8> convertToStdArray(float var[8][8]) {
+std::array<std::array<float, 8>, 8> convertToStdArray(float var[8][8])
+{
     std::array<std::array<float, 8>, 8> result;
-    for (size_t i = 0; i < 8; ++i) {
-        for (size_t j = 0; j < 8; ++j) {
+    for (size_t i = 0; i < 8; ++i)
+    {
+        for (size_t j = 0; j < 8; ++j)
+        {
             result[i][j] = var[i][j];
         }
     }

@@ -1,6 +1,5 @@
 #include "utils.h"
 
-#include <thread>
 void deleteHuffmanTree(HuffmanNode* root)
 {
     if (!root) return;
@@ -54,6 +53,7 @@ std::string encodeData(const std::vector<uint8_t>& data, const std::unordered_ma
     {
         encodedData += codes.at(byte);
     }
+
     return encodedData;
 }
 
@@ -84,6 +84,9 @@ std::vector<uint8_t> encodeHuffman(const std::vector<uint8_t>& data, std::vector
 
     buildHuffmanCodes(root, "", codes);
 
+    // Step 4: Limit Huffman code lengths to 15 bits (16 levels)
+    //limitHuffmanCodeLengths(codes);
+
     header.resize(128, 0);
     for (uint16_t i = 0; i < 255; i += 2)
     {
@@ -91,17 +94,10 @@ std::vector<uint8_t> encodeHuffman(const std::vector<uint8_t>& data, std::vector
         uint8_t len2 = codes.count(i + 1) ? codes[i + 1].size() : 0;
         header[i / 2] = (len1 & 0xF) | ((len2 & 0xF) << 4);
     }
-    std::cout << 5 << std::endl;
 
     std::string bitstream = encodeData(data, codes);
 
-    std::cout << 6 << std::endl;
-
-
     std::vector<uint8_t> compressedData = compressData(bitstream);
-
-    std::cout << 7 << std::endl;
-
 
     deleteHuffmanTree(root);
     return compressedData;

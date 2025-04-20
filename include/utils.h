@@ -18,7 +18,8 @@ namespace fs = std::filesystem;
 #define BLOCK_SIZE 8
 #define CIF_X 352
 #define CIF_Y 288
-#define RGB_CIF_SIZE (CIF_X * CIF_Y * 3)
+#define CIF_SIZE (CIF_X * CIF_Y)
+#define RGB_CIF_SIZE (CIF_SIZE* 3)
 
 #define LIMIT(X) ( (X) < 0 ? 0 : (X) > 255 ? 255 : X )
 
@@ -30,7 +31,7 @@ namespace fs = std::filesystem;
 #define FP_RGB2Cb(R, G, B)  LIMIT( 128 - (0.168736 * R) - 0.331264 * G + (0.5      * B) )
 #define FP_RGB2Cr(R, G, B)  LIMIT( 128 + (0.5      * R) - 0.418688 * G - (0.081312 * B) )
 
-#define DPCM_8BIT(A, B) ((B-A) + 256 / 2)
+#define DPCM_8BIT(A, B) (((B-A) + 256) / 2)
 
 /// ci = cos(i*pi/16)
 #define c1 0.9807852804032304491262 // cos(pi/16)
@@ -114,8 +115,8 @@ std::array<std::array<float, 8>, 8> convertToStdArray(float var[8][8]);
 void compress(const std::string& inputFilePath, const std::string& outputFilePath, int quality);
 
 //void decompress(const std::string& inputFilePath, const std::string& outputFilePath);
-std::vector<YCbCr> processFramesForCompression(const std::string& inputFilePath);
-std::vector<std::vector<float>> segmentFramesToBlocks(const std::vector<YCbCr>& yuvFrames);
+std::vector<std::vector<YCbCr>> processFramesForCompression(const std::string& inputFilePath);
+std::vector<std::vector<float>> segmentFramesToBlocks(const std::vector<std::vector<YCbCr>>& yuvFrames);
 void FDCT_2D(float block[8][8]);
 void IDCT_2D(float block[8][8]);
 void quantizeBlock(float block[8][8], const unsigned char quantTable[8][8], int quality);
